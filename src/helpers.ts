@@ -13,7 +13,7 @@ export function getSequelizeModelTableName<M extends Model>(
     tableName: string;
     delimiter: string;
   };
-  return `${schema}${delimiter}${tableName}`;
+  return `\`${schema}\`${delimiter}\`${tableName}\``;
 }
 
 /**

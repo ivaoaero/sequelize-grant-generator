@@ -13,20 +13,31 @@ This tool was built by and for the [IVAO](https://www.ivao.aero/) Web Developmen
 The easiest way to extract the models is with this simple code:
 
 ```ts
-import { getModelsFromSourceFiles } from "@ivaoaero/sequelize-grant-generator";
+import {
+  generateSQLCommandsFromFoundModels,
+  getModelsFromSourceFiles,
+} from "@ivaoaero/sequelize-grant-generator";
 import { sequelize } from "@ivaoaero/database"; // or '../injection/db';
 
 const PATH_TO_TS_PROJECT = "/home/tchekda/Prog/IVAO/core-api";
 const MY_MODELS = sequelize.models;
+const DB_USERNAME = "ivao_core_api";
 
+// Extract all models and how they are interacting with the DB (CRUD)
 const foundModels = getModelsFromSourceFiles(PATH_TO_TS_PROJECT, MY_MODELS);
-// Dump all models and how they are interacting with the DB (CRUD)
-console.log(JSON.stringify(foundModels));
+
+// Generate the SQL query that will grant the right priviledges
+const query = generateSQLCommandsFromFoundModels(foundModels, DB_USERNAME);
+
+// Execute the query
+sequelize.query(query);
 ```
 
 ### Advanced
 
-If you need some custom logic that we don't support, feel free to create your own parser and make it extend `SequelizeParser` to reuser parts of our logic.
+Both main functions (`getModelsFromSourceFiles` and `generateSQLCommandsFromFoundModels`) take optional options to customize their behaviour. Might be useful in some cases.
+
+If you need some custom parser logic that we don't support, feel free to create your own parser and make it extend `SequelizeParser` to reuser parts of our logic.
 
 ## Documentation
 
