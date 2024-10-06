@@ -6,10 +6,12 @@
   "homepage": "https://github.com/ivaoaero/sequelize-grant-generator",
   "bugs": "https://github.com/ivaoaero/sequelize-grant-generator/issues",
   "author": "David Tchekachev <david.tchekachev@ivao.aero>",
-  "maintainers": [{
-    "name": "IVAO Web DevOps Team",
-    "email": "web@ivao.aero"
-  }],
+  "maintainers": [
+    {
+      "name": "IVAO Web DevOps Team",
+      "email": "web@ivao.aero"
+    }
+  ],
   "license": "MIT",
   "keywords": [
     "sequelize",
@@ -21,7 +23,19 @@
     "database",
     "code-analysis"
   ],
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "files": [
-    "index.js"
-  ]
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "build:watch": "tsc -w"
+  },
+  "dependencies": {
+    "sequelize": "^6.37.3"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4"
+  }
 }
