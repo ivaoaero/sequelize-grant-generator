@@ -1,4 +1,5 @@
 import {
+  Association,
   BelongsToMany,
   BelongsToManyOptions,
   Model,
@@ -18,6 +19,7 @@ import {
 import {
   SequelizeFoundModelsRecord,
   SequelizeParserAvailableModelsRecord,
+  SequelizeParserModelOperations,
   SequelizeParserOptions,
   SequelizeWriteOperationType,
 } from "./types/parser.dto";
@@ -110,8 +112,10 @@ export class SequelizeParser {
       return; // No need to visit children of an import declaration
     }
     if (ts.isCallExpression(node)) {
-      this.findAllWriteOperations(node);
+      // Sample call expression: UserModel.create();, entity.update();
+      this.processCallExpression(node);
       // A call expression might have additional references to models, in the arguments for example (entity.build({ reference: UserModel.build() }))
+      // So we continue visiting the children of the call expression
     }
     // Visit recursively all children of the current node
     ts.forEachChild(node, (node) => this.nodeVisitor(node));
@@ -167,127 +171,55 @@ export class SequelizeParser {
 
   /**
    * Function that checks if a call expression node is a Sequelize model write operation like Model.update, entity.destroy, ...
+   * If so, it will update the found models record with the operation
    * @param {ts.CallExpression} node Call expression node to check if it relates to a Sequelize model, if so which one and what operation
-   * @returns {boolean} True if the node refers to a Sequelize model and a write operation, false otherwise. Used to stop further processing of the node's tree
    */
-  public findAllWriteOperations(node: ts.CallExpression): boolean {
+  public processCallExpression(node: ts.CallExpression) {
     if (!node.expression.getSourceFile() || !node.expression.getFirstToken())
-      return false;
+      return;
 
-    // We expect something of the form: entity.create(), entity.update(), entity.destroy(), Model.create(), Model.update(), Model.destroy(), ....
-    // We need to have at least 3 tokens to have a model reference and a method (MODEL, DOT, METHOD)
-    if (node.expression.getChildCount() < 3) return false;
+    /**
+     *  We expect something of the form: entity.create(), entity.update(), entity.destroy(), Model.create(), Model.update(), Model.destroy(), ...
+     * We need to have at least 3 children to have a model reference and a method
+     * Child 0: Model or entity
+     * Child 1: .
+     * Child 2: Method name
+     */
+    if (node.expression.getChildCount() < 3) return;
 
-    const secondNode = node.expression.getChildAt(2);
-    if (!secondNode) return false;
-    const method = secondNode.getText();
+    // Get the method name
+    const thirdNode = node.expression.getChildAt(2);
+    if (!thirdNode) return;
+
+    const method = thirdNode.getText();
     // Check if the method is a Sequelize model write method before trying to guess the type
     if (
       !method ||
-      !ts.isIdentifier(secondNode) ||
+      !ts.isIdentifier(thirdNode) ||
       !isSequelizeModelWriteMethod(method)
     )
-      return false;
+      return;
 
+    // Get the first token of the expression: Model or entity
     const firstNode = node.expression.getFirstToken();
     // Get the sequelize model from the node
     const model = this.findModelFromNode(firstNode);
-    if (!model) return false;
-    this.updateModelFlagBasedOnMethod(model, method);
+    if (!model) return;
 
-    this.updateSequelizeGeneratedAssociationTargetFlag(
-      model,
-      method,
-      node.arguments
-    );
+    // Update the found models record with the operation: create, update, destroy, ...
+    this.processModelWriteMethod(model, method);
 
-    return true;
-  }
-
-  /**
-   * Function that tries to find a model from a node
-   * @param {ts.Node} node Node to check if it is a model class reference or a variable that might be a model instance
-   * @returns {SequelizeParserFoundModel | undefined} The model found or undefined if no model was found
-   */
-  public findModelFromNode(node: ts.Node): ModelStatic<Model> | undefined {
-    // Check if the node is a model, like Model.create(), Model.update(), Model.destroy(), ....
-    let model = this.availableModels[node.getText()];
-    if (model) return model;
-
-    // Check if the node is a variable that might be a model, like entity.create(), entity.update(), entity.destroy(), ....
-    // If not, then it might not be a sequelize operation
-    if (!ts.isIdentifier(node)) return undefined;
-
-    const typeOfVariable = this.checker.getTypeAtLocation(node);
-
-    // Check if the identifier is a direct instance of Model
-    model = this.availableModels[typeOfVariable.getSymbol()?.getName()];
-    if (model) return model;
-
-    // entity might be an indirect instance of Model
-    // Let's check the declarations of the variable's type
-    typeOfVariable
-      .getSymbol()
-      ?.getDeclarations()
-      ?.forEach((declaration) => {
-        // interface extends Omit<Model>
-        if (ts.isInterfaceDeclaration(declaration)) {
-          declaration.heritageClauses?.forEach((h) =>
-            h.types.forEach((t) =>
-              t.typeArguments.forEach((a) => {
-                if (!model) model = this.availableModels[a.getText()];
-              })
-            )
-          );
-        }
-        // type = Omit<Model>
-        else if (ts.isMappedTypeNode(declaration)) {
-          // No clue how to handle this
-          console.warn(
-            node.getText(),
-            "Using 'MappedType', can't determine model",
-            `at ${getNodeLocationString(node)}`
-          );
-        }
-        // class extends Model, class extends OmitType(Model), class extends PickType(Model)
-        else if (ts.isClassDeclaration(declaration)) {
-          declaration.heritageClauses?.forEach((m) =>
-            m.types.forEach((t) => {
-              const expr = t.expression;
-              if (ts.isCallExpression(expr)) {
-                // class extends OmitType(Model), class extends PickType(Model)
-                // Those come from the `@nestjs/swagger` package and might be used to serialize a model instance
-                expr.arguments.forEach((arg) => {
-                  if (!model) model = this.availableModels[arg.getText()];
-                });
-              } else if (ts.isIdentifier(expr)) {
-                // class extends Model
-                if (!model) model = this.availableModels[expr.getText()];
-              }
-            })
-          );
-        }
-      });
-    if (model) return model;
-    console.error(
-      "Could not find model for",
-      `\`${node.getText()}\``,
-      `(type: ${this.checker.typeToString(typeOfVariable)})`,
-      `at ${getNodeLocationString(node)}`
-    );
-    return undefined;
+    // If the method is a Sequelize-Typescript generated write method, we need to process it differently: entity.$add(), entity.$create(), entity.$set(), entity.$remove()
+    this.processModelTypescriptMixins(model, method, node.arguments);
   }
 
   /**
    * Function that updates the flags of a model based on the method used
    * Feel free to override/extend this function to add more operations or make a PR to add them to the library
-   * @param {SequelizeParserFoundModel} model found model instance to update
+   * @param {SequelizeParserModelOperations} model found model instance to update
    * @param {string} method method name to determine the operation
    */
-  public updateModelFlagBasedOnMethod(
-    model: ModelStatic<Model>,
-    method: string
-  ) {
+  public processModelWriteMethod(model: ModelStatic<Model>, method: string) {
     // Restrict the method to only Sequelize generated write methods. Sequelize-Typescript generated write methods are handled separately
     if (isSequelizeTypescriptGeneratedWriteMethod(method)) return;
 
@@ -299,16 +231,7 @@ export class SequelizeParser {
       return;
     }
 
-    const modelOperations = this.foundModels[model.name];
-    if (!modelOperations) {
-      this.foundModels[model.name] = {
-        table: getSequelizeModelTableName(model),
-        isSelect: true,
-        isInsert: false,
-        isUpdate: false,
-        isDelete: false,
-      };
-    }
+    const modelOperations = this.getOrCreateModelOperations(model);
 
     operations.forEach((op) => {
       switch (op) {
@@ -328,12 +251,12 @@ export class SequelizeParser {
   /**
    * Sequelize-Typescript specific code
    * Here we handle operations like entity.$add(), entity.$create(), entity.$set(), entity.$remove()
-   * @param {ModelStatic<Model>} model Source model from which the association is being called
+   * @param {ModelStatic<Model>} sourceModel Source model from which the association is being called
    * @param {SequelizeTypescriptGeneratedWriteMethod} method Method name to determine the operation
    * @param {ts.NodeArray<ts.Expression>} args Arguments of the method
    */
-  public updateSequelizeGeneratedAssociationTargetFlag(
-    model: ModelStatic<Model>,
+  public processModelTypescriptMixins(
+    sourceModel: ModelStatic<Model>,
     method: SequelizeTypescriptGeneratedWriteMethod,
     args: ts.NodeArray<ts.Expression>
   ) {
@@ -344,64 +267,37 @@ export class SequelizeParser {
     if (args.length < 2) return;
 
     // First argument is the association name
-    const associationNameArg = args[0];
+    const associationNameExp = args[0];
     // For now we only support string literals as association names
-    if (!ts.isStringLiteral(associationNameArg)) {
+    if (!ts.isStringLiteral(associationNameExp)) {
       console.warn(
-        `Association name is not a string literal in ${
-          model.name
-        }.${method}: ${associationNameArg.getText()}`
+        `Association name is not a string literal in '${
+          sourceModel.name
+        }.${method}': '${associationNameExp.getText()}'`
       );
       return;
     }
 
-    const association = model.associations[associationNameArg.text];
+    const association = sourceModel.associations[associationNameExp.text];
     if (!association) {
       console.warn(
-        `Association ${associationNameArg.text} not found in model ${model.name}`
+        `Association '${associationNameExp.text}' not found in model '${sourceModel.name}'`
       );
       return;
     }
 
-    let targetModelOperations = this.foundModels[association.target.name];
-    if (!targetModelOperations) {
-      this.foundModels[association.target.name] = {
-        table: getSequelizeModelTableName(association.target),
-        isSelect: true,
-        isInsert: false,
-        isUpdate: false,
-        isDelete: false,
-      };
-      targetModelOperations = this.foundModels[association.target.name];
+    if (!this.availableModels[association.target.name]) {
+      console.error(
+        `Could not find target model (${association.target.name}) for association '${associationNameExp.text}' in model '${sourceModel.name}'`
+      );
+      return;
     }
 
-    let throughModelOperations = undefined;
-    if (association instanceof BelongsToMany) {
-      // Sequelize types are missing the `options` property in the association
-      const options = (association as any).options as BelongsToManyOptions;
-
-      const throughModel =
-        this.availableModels[
-          getSequelizeModelNameFromThroughModel(options.through)
-        ];
-
-      if (throughModel) {
-        throughModelOperations = this.foundModels[throughModel.name];
-        if (!throughModelOperations) {
-          this.foundModels[throughModel.name] = {
-            table: getSequelizeModelTableName(throughModel),
-            isSelect: true,
-            isInsert: false,
-            isUpdate: false,
-            isDelete: false,
-          };
-          throughModelOperations = this.foundModels[throughModel.name];
-        }
-      } else
-        console.warn(
-          `Could not find through model for association ${associationNameArg.text} in model ${model.name}`
-        );
-    }
+    let targetModelOperations = this.getOrCreateModelOperations(
+      association.target
+    );
+    let throughModelOperations: SequelizeParserModelOperations | undefined =
+      this.getThroughModelOperations(association);
 
     // Most of the time those operations are using on Many-to-Many associations and so the through model is the one impacted
     switch (method) {
@@ -426,7 +322,7 @@ export class SequelizeParser {
         break;
       default:
         console.error(
-          `Method ${method} is not a Sequelize-Typescript generated write method`
+          `Method '${method}' is not a Sequelize-Typescript generated write method`
         );
         break;
     }
@@ -447,37 +343,187 @@ export class SequelizeParser {
         // Only BelongsToMany associations have hidden many-to-many models
         if (!(association instanceof BelongsToMany)) return;
 
-        // Sequelize types are missing the `options` property in the association
-        const options = (association as any).options as BelongsToManyOptions;
-
-        const throughModel = getSequelizeModelNameFromThroughModel(
-          options.through
-        );
-        if (!throughModel) return;
-
-        // Add the through model only if the target is used at some point in the code
+        // We want to add the hidden many-to-many model only if the target model is used at some point in the code
         const targetModelOperations = this.foundModels[association.target.name];
+        // If not found, the target model is not used in the code
         if (!targetModelOperations) return;
 
-        if (!this.foundModels[throughModel]) {
-          this.foundModels[throughModel] = {
-            table: getSequelizeModelTableName(
-              this.availableModels[throughModel]
-            ),
-            isSelect: true,
-            isInsert: targetModelOperations.isInsert,
-            isUpdate: targetModelOperations.isUpdate,
-            isDelete: targetModelOperations.isDelete,
-          };
-        } else {
-          if (targetModelOperations.isInsert)
-            this.foundModels[throughModel].isInsert = true;
-          if (targetModelOperations.isUpdate)
-            this.foundModels[throughModel].isUpdate = true;
-          if (targetModelOperations.isDelete)
-            this.foundModels[throughModel].isDelete = true;
-        }
+        const throughModelOperations =
+          this.getThroughModelOperations(association);
+
+        // Set through model operations based on target model operations
+        if (targetModelOperations.isInsert)
+          throughModelOperations.isInsert = true;
+        if (targetModelOperations.isUpdate)
+          throughModelOperations.isUpdate = true;
+        if (targetModelOperations.isDelete)
+          throughModelOperations.isDelete = true;
       });
     });
+  }
+  
+  // Helper functions
+
+  /**
+   * Function that tries to find a sequelize model reference/instalce from a node, either directly or indirectly
+   * @param {ts.Node} node Node to check if it is a model class reference or a variable that might be a model instance
+   * @returns {SequelizeParserModelOperations | undefined} The model found or undefined if no model was found
+   */
+  public findModelFromNode(node: ts.Node): ModelStatic<Model> | undefined {
+    // Check if the node is a model, like Model.create(), Model.update(), Model.destroy(), ....
+    let model = this.availableModels[node.getText()];
+    if (model) return model;
+
+    // Check if the node is a variable that might be a model, like entity.create(), entity.update(), entity.destroy(), ....
+    // If not, then it might not be a sequelize operation
+    if (!ts.isIdentifier(node)) return undefined;
+
+    const typeOfVariable = this.checker.getTypeAtLocation(node);
+
+    /** Check if the identifier is a direct instance of Model
+     * Example:
+     * ```
+     *  const entity = Model.create();
+     *  entity.update();
+     * ```
+     * In this case, the type of `entity` is Model
+     */
+    model = this.availableModels[typeOfVariable.getSymbol()?.getName()];
+    if (model) return model;
+
+    /**
+     * entity might be an indirect instance of Model
+     * Example:
+     * ```
+     * class MyClass extends Model { ... }
+     * const entity = new MyClass();
+     * entity.update();
+     * ```
+     * In this case, the type of `entity` is MyClass, which extends Model
+     * Let's check the declarations of the variable's type
+     */
+    typeOfVariable
+      .getSymbol() // Example: MyClass
+      ?.getDeclarations() // Example: [class MyClass extends Model { ... }]
+      ?.some((declaration) => {
+        // Stop once found
+        /**
+         * interface MyClass extends Omit<Model, 'id'>
+         * class MyClass extends Model, class extends OmitType(Model), class extends PickType(Model)
+         */
+        if (
+          ts.isInterfaceDeclaration(declaration) ||
+          ts.isClassDeclaration(declaration)
+        ) {
+          return declaration.heritageClauses?.some((h) =>
+            h.types.some((t) => {
+              // Omit<Model, 'id'>
+              t.typeArguments?.some((a) => {
+                if (!a.getText() || !this.availableModels[a.getText()])
+                  return false;
+                model = this.availableModels[a.getText()];
+                return true;
+              });
+              // If found, no need to continue
+              if (model) return true;
+
+              // Model, OmitType(Model), PickType(Model)
+              const expr = t.expression;
+              if (ts.isCallExpression(expr)) {
+                /**
+                 * extends OmitType(Model), extends PickType(Model)
+                 * Those come from the `@nestjs/swagger` package and might be used to serialize a model instance
+                 */
+                return expr.arguments.some((arg) => {
+                  if (!this.availableModels[arg.getText()]) return false;
+                  model = this.availableModels[arg.getText()];
+                  return true;
+                });
+              } else if (
+                ts.isIdentifier(expr) &&
+                this.availableModels[expr.getText()]
+              ) {
+                // extends Model
+                model = this.availableModels[expr.getText()];
+                return true;
+              } else {
+                console.warn(
+                  node.getText(),
+                  "Using 'HeritageClause', can't determine model",
+                  `at ${getNodeLocationString(node)}`
+                );
+              }
+              return false;
+            })
+          );
+        }
+        // type MyClass = Omit<Model>
+        else if (ts.isMappedTypeNode(declaration)) {
+          // No clue how to handle this
+          console.warn(
+            node.getText(),
+            "Using 'MappedType', can't determine model",
+            `at ${getNodeLocationString(node)}`
+          );
+        }
+      });
+    if (model) return model;
+    console.error(
+      "Could not find model for",
+      `\`${node.getText()}\``,
+      `(type: ${this.checker.typeToString(typeOfVariable)})`,
+      `at ${getNodeLocationString(node)}`
+    );
+    return undefined;
+  }
+
+  /**
+   * Helper function to get the through model operations from a BelongsToMany association
+   * @param {Association} association Sequelize association from which to get the through model operations
+   * @returns {SequelizeParserModelOperations | undefined} The through model operations or undefined if the association is not a BelongsToMany or model not found
+   */
+  public getThroughModelOperations(
+    association: Association
+  ): SequelizeParserModelOperations | undefined {
+    // Only BelongsToMany associations have through models
+    if (!(association instanceof BelongsToMany)) return undefined;
+
+    // Sequelize types are missing the `options` property in the association
+    const options = (association as any).options as BelongsToManyOptions;
+    if (!options.through) return undefined;
+
+    const throughModelName = getSequelizeModelNameFromThroughModel(
+      options.through
+    );
+    // Error is already logged in the helper function
+    if (!throughModelName) return undefined;
+
+    const throughModel = this.availableModels[throughModelName];
+    if (!throughModel) {
+      console.error(`
+        Could not find through model (${throughModelName}) for association ${association.associationType} in model ${association.source.name}`);
+      return undefined;
+    }
+    return this.getOrCreateModelOperations(throughModel);
+  }
+
+  /**
+   * Helper function to get or create the operations for a model
+   * @param {ModelStatic<Model>} model Model to get or create the operations for
+   * @returns {SequelizeParserModelOperations} The operations for the model
+   */
+  public getOrCreateModelOperations(model: ModelStatic<Model>) {
+    const modelOperations = this.foundModels[model.name];
+    if (!modelOperations) {
+      this.foundModels[model.name] = {
+        table: getSequelizeModelTableName(model),
+        isSelect: true,
+        isInsert: false,
+        isUpdate: false,
+        isDelete: false,
+      };
+      return this.foundModels[model.name];
+    }
+    return modelOperations;
   }
 }

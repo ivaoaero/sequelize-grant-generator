@@ -1,6 +1,6 @@
 import { Model, ModelStatic } from "sequelize";
 
-export type SequelizeParserFoundModel = {
+export type SequelizeParserModelOperations = {
   table: string;
   isSelect: true;
   isInsert: boolean;
@@ -10,7 +10,7 @@ export type SequelizeParserFoundModel = {
 
 export type SequelizeFoundModelsRecord = Record<
   string,
-  SequelizeParserFoundModel
+  SequelizeParserModelOperations
 >;
 
 export type SequelizeParserOptions = {

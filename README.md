@@ -43,6 +43,18 @@ If you need some custom parser logic that we don't support, feel free to create 
 
 For now we haven't had the time to format the code documentation into something easily readable. We suggest you go over the source code directly as we tried to extensively comment all available options and logic used.
 
+### Parser logic
+
+The parser follows those steps to analyze the code:
+
+- Load the typescript configuration in the root directory passed as parameter and initialize the compiler/type-checker with it
+- List all the TS files in the project
+- Visit/read each file. Each file is reprensented with an [Abstract Syntax Tree (AST)](https://en.wikipedia.org/wiki/Abstract_syntax_tree)
+- Visit each node of the AST with a recursive tree-traversal method
+  - If the current node is an import statement and the imported value is a sequelize model, add it to the list of found models and set the default flags to `SELECT` only
+  - If the current node is a function call (aka `CallExpression`), check if the method is sequelize method and extract the sequelize model it is called on. Apply the `INSERT`, `UPDATE`, or `DELETE` flag to that model
+- Return the list of found models with the respective read/write operations
+
 ## Bugs and Features
 
 If you encounter any bugs or need any additional feature, please open a GitHub Issue.
