@@ -1,0 +1,26 @@
+name: Build Typescript Project
+
+on:
+  workflow_dispatch:
+  push:
+
+jobs:
+  build:
+    name: Build library
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "18.x"
+      - name: Install Yarn
+        run: npm install -g yarn
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ./node_modules
+          key: node_modules
+      - name: Install Yarn dependencies
+        run: yarn install --frozen-lockfile --ignore-scripts
+      - name: Build package
+        run: yarn build
