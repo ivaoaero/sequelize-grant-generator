@@ -26,9 +26,10 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
-    "dist"
+    "dist",
+    "cli-entry.js"
   ],
-  "bin": "node dist/cli.js",
+  "bin": "./cli-entry.js",
   "scripts": {
     "build": "tsc",
     "build:watch": "tsc -w",

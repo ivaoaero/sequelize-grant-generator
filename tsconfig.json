@@ -4,9 +4,7 @@
     "target": "es2019",
     "declaration": true,
     "outDir": "./dist",
-    "esModuleInterop": true,
+    "esModuleInterop": true
   },
-  "include": [
-    "src/**/*"
-  ]
+  "include": ["src/**/*"]
 }
