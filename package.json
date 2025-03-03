@@ -28,11 +28,14 @@
   "files": [
     "dist"
   ],
+  "bin": "node dist/cli.js",
   "scripts": {
     "build": "tsc",
     "build:watch": "tsc -w"
   },
   "dependencies": {
+    "@commander-js/extra-typings": "^13.1.0",
+    "commander": "^13.1.0",
     "sequelize": "^6.37.3"
   },
   "devDependencies": {

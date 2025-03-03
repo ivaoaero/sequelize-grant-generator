@@ -8,7 +8,21 @@ This tool was built by and for the [IVAO](https://www.ivao.aero/) Web Developmen
 
 ## Usage
 
-### Recommended
+### With CLI
+
+A CLI is exposed to run the tool. The command line looks like this:
+
+```bash
+node ./dist/cli.js scan-and-grant /home/tchekda/Prog/IVAO/core/packages/api @ivaoaero/database --db-target-username test --dry-run --print-sql
+```
+
+All options are avaible with
+
+```bash
+node ./dist/cli.js --help
+```
+
+### With code
 
 The easiest way to extract the models is with this simple code:
 
