@@ -1,0 +1,49 @@
+name: Publish Package to GitHub Packages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read # for checkout
+
+jobs:
+  commitlint:
+    name: Commit Lint
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+      - uses: wagoid/commitlint-github-action@v6
+  build:
+    name: Build and release NPM library
+    runs-on: self-hosted
+    permissions:
+      contents: write # to be able to publish a GitHub release
+      id-token: write # to enable use of OIDC for npm provenance
+      issues: write # to be able to comment on released issues
+      packages: write # to be able to publish a NPM package
+      pull-requests: write # to be able to comment on released pull requests
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20.x"
+          registry-url: "https://npm.pkg.github.com"
+          scope: "@ivaoaero"
+      - name: Install Yarn
+        run: npm install -g yarn
+      - uses: actions/cache@v4
+        with:
+          path: |
+            **/node_modules
+          key: node_modules
+      - name: Install Yarn dependencies
+        run: yarn install --frozen-lockfile --ignore-scripts
+      - name: Build package
+        run: yarn build
+      - name: Release NPM package
+        run: yarn release
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

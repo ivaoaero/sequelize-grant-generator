@@ -1,6 +1,6 @@
 {
   "name": "@ivaoaero/sequelize-grant-generator",
-  "version": "0.0.1",
+  "version": "0.0.0-semantic-released",
   "description": "Typescript plugin that extracts Sequelize models usage in source code and generates SQL grants accordingly",
   "repository": "git@github.com:ivaoaero/sequelize-grant-generator.git",
   "homepage": "https://github.com/ivaoaero/sequelize-grant-generator",
@@ -31,7 +31,9 @@
   "bin": "node dist/cli.js",
   "scripts": {
     "build": "tsc",
-    "build:watch": "tsc -w"
+    "build:watch": "tsc -w",
+    "release": "semantic-release",
+    "prepare": "husky"
   },
   "dependencies": {
     "@commander-js/extra-typings": "^13.1.0",
@@ -39,6 +41,19 @@
     "sequelize": "^6.37.3"
   },
   "devDependencies": {
+    "@commitlint/cli": "^19.7.1",
+    "@commitlint/config-conventional": "^19.7.1",
+    "@semantic-release/git": "^10.0.1",
+    "@semantic-release/github": "^11.0.1",
+    "@semantic-release/npm": "^12.0.1",
+    "commitlint": "^19.7.1",
+    "husky": "^9.1.7",
+    "semantic-release": "^24.2.3",
     "typescript": "^5.5.4"
+  },
+  "publishConfig": {
+    "access": "public",
+    "@ivaoaero:registry": "https://npm.pkg.github.com",
+    "registry": "https://npm.pkg.github.com"
   }
 }
