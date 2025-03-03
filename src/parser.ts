@@ -156,10 +156,10 @@ export class SequelizeParser {
         if (!model || !isSequelizeModel(model)) return;
 
         // If the model is already found, no need to add it again
-        if (this.foundModels[name.getText()]) return;
+        if (this.foundModels[model.name]) return;
 
         // Add the model to the found models record with SELECT operation by default
-        this.foundModels[name.getText()] = {
+        this.foundModels[model.name] = {
           table: getSequelizeModelTableName(model),
           isSelect: true,
           isInsert: false,
@@ -361,7 +361,7 @@ export class SequelizeParser {
       });
     });
   }
-  
+
   // Helper functions
 
   /**
