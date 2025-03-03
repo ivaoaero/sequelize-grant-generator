@@ -109,6 +109,7 @@ export function isSequelizeModel<M extends Model>(
 
 /**
  * Extract the model name from a Sequelize model class
+ * Still using `ModelType` since `sequelize/types` is still using it in `BelongsToManyOptions`
  * @param {ModelType | string | ThroughOptions} throughModel model reference from BelongsToManyOptions association
  * @returns {string | undefined} Model name extracted from the through model
  */
