@@ -1,6 +1,6 @@
 import { Model, ModelStatic, ModelType, ThroughOptions } from "sequelize";
 import ts from "typescript";
-import { SequelizeWriteOperationType } from "./types/parser.dto";
+import { SequelizeFoundModelsRecord, SequelizeWriteOperationType, SequelizeParserModelOperations } from "./types/parser.dto";
 
 export function getSequelizeModelTableName<M extends Model>(
   model: ModelStatic<M>
@@ -127,4 +127,24 @@ export function getSequelizeModelNameFromThroughModel(
   }
   console.error(`Invalid through model: ${throughModel}`);
   return undefined;
+}
+
+export function mergeFoundModelRecords(recordA: SequelizeFoundModelsRecord, recordB: SequelizeFoundModelsRecord): SequelizeFoundModelsRecord {
+  const mergedRecord: SequelizeFoundModelsRecord = { ...recordA };
+
+  for (const [modelName, model] of Object.entries(recordB)) {
+    if (mergedRecord[modelName]) {
+      // Merge existing model - combine all boolean operation flags
+      const existing = mergedRecord[modelName];
+      existing.isSelect = existing.isSelect || model.isSelect;
+      existing.isInsert = existing.isInsert || model.isInsert;
+      existing.isUpdate = existing.isUpdate || model.isUpdate;
+      existing.isDelete = existing.isDelete || model.isDelete;
+    } else {
+      // Add new model
+      mergedRecord[modelName] = model;
+    }
+  }
+
+  return mergedRecord;
 }

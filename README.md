@@ -8,6 +8,16 @@ This tool was built by and for the [IVAO](https://www.ivao.aero/) Web Developmen
 
 ## Usage
 
+### Installation
+
+```bash
+npm install --save-dev @ivaoaero/sequelize-grant-generator
+```
+
+```bash
+yarn add -D @ivaoaero/sequelize-grant-generator
+```
+
 ### With CLI
 
 A CLI is exposed to run the tool. The command line looks like this:
@@ -46,6 +56,18 @@ const query = generateSQLCommandsFromFoundModels(foundModels, DB_USERNAME);
 // Execute the query
 sequelize.query(query);
 ```
+
+### As a NPM dependency
+
+After installing the package, add the following script to your `package.json`:
+
+```json
+  "scripts": {
+    "db-grant": "sequelize-grant-generator scan-and-grant . @ivaoaero/database --print-sql --additional-found-models-path @ivaoaero/common-api/dist/grants.json --clear-all-grants"
+  }
+```
+
+So you can now use `npm run db-grant` to execute the command
 
 ### Advanced
 

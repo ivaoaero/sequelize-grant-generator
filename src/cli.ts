@@ -2,6 +2,8 @@ import { program } from "@commander-js/extra-typings";
 import { getModelsFromSourceFiles } from "./parser";
 import { generateSQLCommandsFromFoundModels } from "./sql_generator";
 import { Sequelize } from "sequelize";
+import { readModelsFromModulePath } from "./file-utils";
+import { mergeFoundModelRecords } from "./helpers";
 
 program
   .version("0.0.1")
@@ -21,8 +23,14 @@ program
     "Target database username, Default: env.DB_TARGET_USERNAME",
     process.env.DB_TARGET_USERNAME
   )
-  .option("--dry-run", "Do not execute the SQL commands, just print them")
-  .option("--print-sql", "Print the SQL commands")
+  .option(
+    "--additional-found-models-path <additional-models-path>",
+    "Path to additional models to grant permissions for. This is useful if you want to grant permissions to models that are not found in the source code. Example: `@ivaoaero/common-api/dist/grants.json`",
+    ""
+  )
+  .option("--clear-all-grants", "Clear all grants before adding new ones. Default: false", false)
+  .option("--dry-run", "Do not execute the SQL commands, just print them. Default: false", false)
+  .option("--print-sql", "Print the SQL commands. Default: false", false)
   .action(async (directory, packageName, options) => {
     if (!options.dbTargetUsername) {
       console.error(
@@ -41,12 +49,23 @@ program
 
     // Start actual scanning
     // Extract all models and how they are interacting with the DB (CRUD)
-    const foundModels = getModelsFromSourceFiles(directory, sequelize.models);
+    let foundModels = getModelsFromSourceFiles(directory, sequelize.models);
+
+    // If additional models path is provided, merge them with the found models
+    if (options.additionalFoundModelsPath) {
+      const additionalModels = readModelsFromModulePath(
+        options.additionalFoundModelsPath,
+      );
+      foundModels = mergeFoundModelRecords(foundModels, additionalModels);
+    }
 
     // Generate the SQL query that will grant the right priviledges
     const query = generateSQLCommandsFromFoundModels(
       foundModels,
-      options.dbTargetUsername
+      options.dbTargetUsername,
+      {
+        clearAllGrants: options.clearAllGrants,
+      }
     );
 
     if (options.printSql) console.log(query);
