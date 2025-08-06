@@ -2,6 +2,26 @@
 
 Typescript plugin that extracts Sequelize models' usage in source code and generates SQL grants accordingly.
 
+## Example
+
+`sequelize-grant-generator scan-and-grant API_DIRECTORY MODELS_PACKAGE` executes:
+
+```sql
+REVOKE SELECT, INSERT, UPDATE, DELETE ON *.* FROM 'DB_USER'@'%';
+GRANT SELECT ON `core`.`oauth_applications` TO 'DB_USER'@'%';
+GRANT INSERT ON `core`.`oauth_applications` TO 'DB_USER'@'%';
+GRANT UPDATE ON `core`.`oauth_applications` TO 'DB_USER'@'%';
+GRANT DELETE ON `core`.`oauth_applications` TO 'DB_USER'@'%';
+GRANT SELECT ON `core`.`oauth_consents` TO 'DB_USER'@'%';
+GRANT SELECT ON `core`.`oauth_scopes` TO 'DB_USER'@'%';
+GRANT SELECT ON `core`.`departments` TO 'DB_USER'@'%';
+GRANT SELECT ON `core`.`department_teams` TO 'DB_USER'@'%';
+GRANT SELECT ON `core`.`staff_positions` TO 'DB_USER'@'%';
+GRANT SELECT ON `core`.`users` TO 'DB_USER'@'%';
+GRANT SELECT ON `core`.`user_staff_positions` TO 'DB_USER'@'%';
+FLUSH PRIVILEGES;
+```
+
 ## Context
 
 This tool was built by and for the [IVAO](https://www.ivao.aero/) Web Development team to automatically grant its API the rights access to the databases and tables based on the models used in the code.
