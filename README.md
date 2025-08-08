@@ -31,11 +31,11 @@ This tool was built by and for the [IVAO](https://www.ivao.aero/) Web Developmen
 ### Installation
 
 ```bash
-npm install --save-dev @ivaoaero/sequelize-grant-generator
+npm install --save-dev @ivao/sequelize-grant-generator
 ```
 
 ```bash
-yarn add -D @ivaoaero/sequelize-grant-generator
+yarn add -D @ivao/sequelize-grant-generator
 ```
 
 ### With CLI
@@ -60,7 +60,7 @@ The easiest way to extract the models is with this simple code:
 import {
   generateSQLCommandsFromFoundModels,
   getModelsFromSourceFiles,
-} from "@ivaoaero/sequelize-grant-generator";
+} from "@ivao/sequelize-grant-generator";
 import { sequelize } from "@ivaoaero/database"; // or '../injection/db';
 
 const PATH_TO_TS_PROJECT = "/home/tchekda/Prog/IVAO/core-api";

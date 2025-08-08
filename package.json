@@ -1,15 +1,27 @@
 {
-  "name": "@ivaoaero/sequelize-grant-generator",
+  "name": "@ivao/sequelize-grant-generator",
   "version": "0.0.0-semantic-released",
   "description": "Typescript plugin that extracts Sequelize models usage in source code and generates SQL grants accordingly",
-  "repository": "git@github.com:ivaoaero/sequelize-grant-generator.git",
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/ivaoaero/sequelize-grant-generator.git"
+  },
   "homepage": "https://github.com/ivaoaero/sequelize-grant-generator",
   "bugs": "https://github.com/ivaoaero/sequelize-grant-generator/issues",
-  "author": "David Tchekachev <david.tchekachev@ivao.aero>",
+  "author": {
+    "name": "David Tchekachev",
+    "email": "david.tchekachev@ivao.aero",
+    "url": "https://github.com/Tchekda"
+  },
   "maintainers": [
     {
       "name": "IVAO Web DevOps Team",
       "email": "web@ivao.aero"
+    },
+    {
+      "name": "David Tchekachev (485573)",
+      "email": "david.tchekachev@ivao.aero",
+      "url": "https://github.com/Tchekda"
     }
   ],
   "license": "LGPL-3.0-or-later",
@@ -29,7 +41,9 @@
     "dist",
     "cli-entry.js"
   ],
-  "bin": "./cli-entry.js",
+  "bin": {
+    "sequelize-grant-generator": "cli-entry.js"
+  },
   "scripts": {
     "build": "tsc",
     "build:watch": "tsc -w",
@@ -54,8 +68,6 @@
     "semantic-release": "^24.2.3"
   },
   "publishConfig": {
-    "access": "public",
-    "@ivaoaero:registry": "https://npm.pkg.github.com",
-    "registry": "https://npm.pkg.github.com"
+    "access": "public"
   }
 }
