@@ -6,12 +6,14 @@ on:
   workflow_dispatch:
 
 permissions:
+  id-token: write # for npm OIDC
   contents: read # for checkout
 
 jobs:
   build:
     name: Build and release NPM library
     runs-on: ubuntu-24.04
+    environment: default # environment for NPM OIDC
     permissions:
       contents: write # to be able to publish a GitHub release
       id-token: write # to enable use of OIDC for npm provenance
@@ -20,12 +22,13 @@ jobs:
       pull-requests: write # to be able to comment on released pull requests
     steps:
       - uses: actions/checkout@v4
+      - name: Install Yarn
+        run: npm install -g yarn
       - uses: actions/setup-node@v4
         with:
           node-version: "22.x"
           registry-url: "https://registry.npmjs.org"
-      - name: Install Yarn
-        run: npm install -g yarn
+          cache: "yarn"
       - uses: actions/cache@v4
         with:
           path: |
@@ -38,5 +41,4 @@ jobs:
       - name: Release NPM package
         run: yarn release
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
